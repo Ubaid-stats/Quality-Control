@@ -1,0 +1,285 @@
+---
+title: "X̄ and R Charts for a Manufacturing Process"
+subtitle: "Hard-bake process in semiconductor manufacturing"
+output:
+  pdf_document:
+    toc: true
+    latex_engine: xelatex
+  word_document:
+    toc: true
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+setwd("D:/Notes 7th smester/quality control/project/IN R")
+# Global settings for all code chunks below.
+# echo = FALSE    -> hide the code in the report (only results are shown)
+#                    (change to echo = TRUE if you want to show the code too)
+# warning/message -> hide warnings and messages so the report looks clean
+# fig.width/height -> size of every plot (in inches)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,
+                      fig.width = 9, fig.height = 7)
+```
+
+```{r calc}
+# ---- Step A: Enter the data ----
+# 25 samples (rows) x 5 wafers (columns) = 125 flow width values in microns.
+# byrow = TRUE means R fills the numbers row by row (one sample per row).
+data_matrix <- matrix(c(
+  1.3235,1.4128,1.6744,1.4573,1.6914, 1.4314,1.3592,1.6075,1.4666,1.6109,
+  1.4284,1.4871,1.4932,1.4324,1.5674, 1.5028,1.6352,1.3841,1.2831,1.5507,
+  1.5604,1.2735,1.5265,1.4363,1.6441, 1.5955,1.5451,1.3574,1.3281,1.4198,
+  1.6274,1.5064,1.8366,1.4177,1.5144, 1.4190,1.4303,1.6637,1.6067,1.5519,
+  1.3884,1.7277,1.5355,1.5176,1.3688, 1.4039,1.6697,1.5089,1.4627,1.5220,
+  1.4158,1.7667,1.4278,1.5928,1.4181, 1.5821,1.3355,1.5777,1.3908,1.7559,
+  1.2856,1.4106,1.4447,1.6398,1.1928, 1.4951,1.4036,1.5893,1.6458,1.4969,
+  1.3589,1.2863,1.5996,1.2497,1.5471, 1.5747,1.5301,1.5171,1.1839,1.8662,
+  1.3680,1.7269,1.3957,1.5014,1.4449, 1.4163,1.3864,1.3057,1.6210,1.5573,
+  1.5796,1.4185,1.6541,1.5116,1.7247, 1.7106,1.4412,1.2361,1.3820,1.7601,
+  1.4371,1.5051,1.3485,1.5670,1.4880, 1.4738,1.5936,1.6583,1.4973,1.4720,
+  1.5917,1.4333,1.5551,1.5295,1.6866, 1.6399,1.5243,1.5705,1.5563,1.5530,
+  1.5797,1.3663,1.6240,1.3732,1.6887), byrow = TRUE, ncol = 5)
+
+# ---- Step B: Summarise each sample ----
+# Mean of each row (average flow width of the 5 wafers in that sample)
+sample_means  <- rowMeans(data_matrix)
+# Range of each row = biggest value minus smallest value (shows spread)
+# apply(data_matrix, 1, ...) means "do this for every row"
+sample_ranges <- apply(data_matrix, 1, function(x) max(x) - min(x))
+
+# ---- Step C: Centre lines ----
+# xbarbar = average of all sample means (centre line of the X-bar chart)
+xbarbar <- mean(sample_means)
+# Rbar = average of all sample ranges (centre line of the R chart)
+Rbar    <- mean(sample_ranges)
+
+# Control chart constants for sample size n = 5 (from Appendix Table VI)
+A2 <- 0.577; D3 <- 0; D4 <- 2.114
+
+# ---- Step D: Control limits ----
+# X-bar chart limits:  xbarbar  +/-  A2 * Rbar
+UCLx <- xbarbar + A2 * Rbar;  LCLx <- xbarbar - A2 * Rbar
+# R chart limits:  D4 * Rbar (upper)  and  D3 * Rbar (lower)
+UCLR <- D4 * Rbar;            LCLR <- D3 * Rbar
+
+# ---- Step E: Find out-of-control points ----
+# which() gives the sample numbers that are above the UCL or below the LCL.
+# "|" means OR. If nothing is outside, the result is empty.
+out_x <- which(sample_means > UCLx | sample_means < LCLx)
+out_r <- which(sample_ranges > UCLR | sample_ranges < LCLR)
+```
+
+# 1. Problem Statement
+
+A hard-bake process is used in conjunction with photolithography in semiconductor manufacturing. During this process, a resist material is treated to achieve the required properties for manufacturing semiconductor wafers. The flow width of the resist is an important quality characteristic that must be monitored to maintain consistent product quality.
+
+The quality control department of a semiconductor manufacturing facility wants to determine whether the process is operating under statistical control. For this purpose, two statistical process control charts, the **X̄ (X-bar) chart** and the **R (Range) chart**, will be constructed.
+
+Twenty-five samples, also called subgroups, were collected when the process was believed to be in control. Each sample contains measurements from five wafers, so the subgroup size is $n=5$. Samples were collected at one-hour intervals, and the flow width of the resist was measured in microns.
+
+The collected data will be used to calculate the mean and range of each subgroup, estimate the overall process mean and variability, establish the upper and lower control limits, and determine whether the process is statistically stable.
+
+# 2. Given Information
+
+- Number of subgroups: $m=25$
+- Number of wafers per subgroup: $n=5$
+- Total number of measurements: $25\times5=125$
+- Sampling interval: One hour
+- Quality characteristic: Resist flow width
+- Measurement unit: Microns
+- X̄-chart constant: $A_2=0.577$
+- R-chart constant: $D_3=0$
+- R-chart constant: $D_4=2.114$
+
+The constants are selected from the standard control chart constants table for a subgroup size of five.
+
+# 3. Objectives
+
+The objectives of this problem are:
+
+1. Calculate the mean and range for each of the 25 subgroups.
+2. Calculate the grand mean, $\bar{\bar X}$, and average range, $\bar R$.
+3. Construct the R chart to examine process variability.
+4. Calculate the control limits for the R chart.
+5. Calculate the control limits for the X̄ chart.
+6. Construct both control charts and identify any points outside the control limits.
+7. Determine whether the process appears to be in statistical control and whether the trial control limits can be used for future monitoring.
+
+# 4. Required Calculations
+
+For each subgroup $i$, calculate the sample mean:
+
+$$
+\bar X_i=\frac{1}{n}\sum_{j=1}^{n}X_{ij}
+$$
+
+Calculate the sample range:
+
+$$
+R_i=X_{\max,i}-X_{\min,i}
+$$
+
+Calculate the grand mean:
+
+$$
+\bar{\bar X}=\frac{1}{m}\sum_{i=1}^{m}\bar X_i
+$$
+
+Calculate the average range:
+
+$$
+\bar R=\frac{1}{m}\sum_{i=1}^{m}R_i
+$$
+
+### R-chart control limits
+
+$$
+\begin{aligned}
+UCL_R&=D_4\bar R\\
+CL_R&=\bar R\\
+LCL_R&=D_3\bar R
+\end{aligned}
+$$
+
+### X̄-chart control limits
+
+$$
+\begin{aligned}
+UCL_{\bar X}&=\bar{\bar X}+A_2\bar R\\
+CL_{\bar X}&=\bar{\bar X}\\
+LCL_{\bar X}&=\bar{\bar X}-A_2\bar R
+\end{aligned}
+$$
+
+# 5. Interpretation Plan
+
+The R chart will be examined first because the X̄-chart limits depend on the estimate of process variability. After checking the R chart, the X̄ chart will be examined for changes in the process mean.
+
+Any point outside the control limits indicates a possible special cause of variation and should be investigated. Patterns such as long runs on one side of the centre line or sustained trends should also be checked.
+
+If both charts indicate statistical control and no important unusual patterns are found, the trial control limits may be adopted for monitoring future production, subject to confirming that the process is stable and the sampling assumptions are appropriate.
+
+# 6. Data Summary
+
+Each subgroup is summarised by its mean (X̄ᵢ) and its range (Rᵢ = max − min).
+
+```{r table}
+# Build a table: sample number, the 5 wafer values, then mean and range.
+# round(..., 4) keeps 4 decimal places so the table is easy to read.
+tab <- data.frame(
+  Sample = 1:25,
+  round(data_matrix, 4),
+  Mean   = round(sample_means, 4),
+  Range  = round(sample_ranges, 4)
+)
+# Give the 5 data columns clear names: Wafer 1 ... Wafer 5
+names(tab)[2:6] <- paste("Wafer", 1:5)
+# kable() turns the table into a neat formatted table; align = "c" centres it
+knitr::kable(tab, align = "c")
+```
+
+# 7. Solution, Step by Step
+
+## Step 1 — Start with the R chart
+
+Control limits of the X̄ chart depend on process variability. Unless variability
+is in control, those limits have little meaning. So the **R chart is built first**.
+
+## Step 2 — Averages
+
+```{r avgs}
+# Show the two centre values in a small table (5 decimals, like the textbook)
+knitr::kable(data.frame(
+  Quantity = c("Grand mean  (X̿)", "Average range  (R̄)"),
+  Value    = round(c(xbarbar, Rbar), 5)
+), align = "lc")
+```
+
+## Step 3 — Constants for n = 5 (Appendix Table VI)
+
+```{r consts}
+# Show the constants used in the formulas. They depend only on sample size n.
+knitr::kable(data.frame(A2 = A2, D3 = D3, D4 = D4), align = "ccc")
+```
+
+## Step 4 — Control limits
+
+**R chart:** LCL = D₃·R̄ , CL = R̄ , UCL = D₄·R̄
+
+**X̄ chart:** LCL = X̿ − A₂·R̄ , CL = X̿ , UCL = X̿ + A₂·R̄
+
+```{r limits}
+# Put the final LCL, CL and UCL of both charts in one table
+knitr::kable(data.frame(
+  Chart = c("R chart", "X̄ chart"),
+  LCL   = round(c(LCLR, LCLx), 4),
+  CL    = round(c(Rbar, xbarbar), 4),
+  UCL   = round(c(UCLR, UCLx), 4)
+), align = "lccc")
+```
+
+## Step 5 — Control charts
+
+```{r plots}
+# Draw 2 plots in one picture: 2 rows, 1 column. mar = space around each plot.
+par(mfrow = c(2, 1), mar = c(4, 4, 3, 2))
+
+# ===== X-bar chart =====
+# y-axis range: a little wider than the limits and the data so nothing is cut off
+ylim_x <- c(min(LCLx, sample_means) - 0.1, max(UCLx, sample_means) + 0.1)
+# Plot the sample means as points joined by lines (type = "b")
+plot(sample_means, type = "b", pch = 19, ylim = ylim_x,
+     main = "X̄ Chart", xlab = "Subgroup", ylab = "Mean")
+# Mark any out-of-control points in red (none here, so nothing appears)
+points(out_x, sample_means[out_x], col = "red", pch = 19, cex = 1.3)
+# Draw the three lines: UCL (red dashed), centre line (blue), LCL (red dashed)
+abline(h = UCLx,    col = "red",  lwd = 2, lty = 2)
+abline(h = xbarbar, col = "blue", lwd = 2)
+abline(h = LCLx,    col = "red",  lwd = 2, lty = 2)
+# Write the value of each line on the chart (near the right side)
+text(25 * 0.95, UCLx,    paste("UCL =", round(UCLx, 4)),    pos = 3, col = "red",  font = 2)
+text(25 * 0.95, xbarbar, paste("CL =",  round(xbarbar, 4)), pos = 3, col = "blue", font = 2)
+text(25 * 0.95, LCLx,    paste("LCL =", round(LCLx, 4)),    pos = 1, col = "red",  font = 2)
+
+# ===== R chart =====
+# y-axis range for the R chart
+ylim_r <- c(min(LCLR, sample_ranges) - 0.05, max(UCLR, sample_ranges) + 0.1)
+# Plot the sample ranges as points joined by lines
+plot(sample_ranges, type = "b", pch = 19, ylim = ylim_r,
+     main = "R Chart", xlab = "Subgroup", ylab = "Range")
+# Mark out-of-control points in red (none here)
+points(out_r, sample_ranges[out_r], col = "red", pch = 19, cex = 1.3)
+# Draw UCL, centre line and LCL
+abline(h = UCLR, col = "red",  lwd = 2, lty = 2)
+abline(h = Rbar, col = "blue", lwd = 2)
+abline(h = LCLR, col = "red",  lwd = 2, lty = 2)
+# Label the lines. LCL is 0, so its label is moved up (+0.13) to stay visible.
+text(25 * 0.95, UCLR,        paste("UCL =", round(UCLR, 4)), pos = 3, col = "red",  font = 2)
+text(25 * 0.95, Rbar,        paste("CL =",  round(Rbar, 4)), pos = 3, col = "blue", font = 2)
+text(25 * 0.95, LCLR + 0.13, paste("LCL =", round(LCLR, 4)), pos = 1, col = "red",  font = 2)
+```
+
+## Step 6 — Out-of-control check
+
+```{r ooc, results='asis'}
+# Print a sentence for each chart.
+# If out_r / out_x is empty (length 0) -> the process is in control.
+# Otherwise -> list the sample numbers that are outside the limits.
+cat("- **R chart:**",
+    if (length(out_r) == 0) "no points outside the control limits." else
+      paste("points outside limits at subgroup(s):", paste(out_r, collapse = ", ")), "\n")
+cat("- **X̄ chart:**",
+    if (length(out_x) == 0) "no points outside the control limits." else
+      paste("points outside limits at subgroup(s):", paste(out_x, collapse = ", ")), "\n")
+```
+
+# 8. Conclusion
+
+- The **R chart** shows that process variability is in statistical control
+  (the largest range, subgroup 16, stays just below the UCL).
+- The **X̄ chart** shows that the process mean is also in statistical control.
+- Both charts show **no out-of-control points and no unusual pattern**, so the
+  trial control limits above can be adopted for **monitoring future production**
+  of the hard-bake process.
+
+---
