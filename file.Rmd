@@ -11,7 +11,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-setwd("D:/Notes 7th smester/quality control/project/IN R")
+
 # Global settings for all code chunks below.
 # echo = FALSE    -> hide the code in the report (only results are shown)
 #                    (change to echo = TRUE if you want to show the code too)
