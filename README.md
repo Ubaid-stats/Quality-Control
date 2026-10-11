@@ -39,4 +39,4 @@ install.packages("tinytex")
 tinytex::install_tinytex()
 
 ## Author
-Ubaid
+Ubaid Ur Rehman
